@@ -5,6 +5,7 @@ Evaluate math expressions from user input safely.
 * Provide custom sets of functions and values, for use inside of expressions
 * Small library size
 
+With some caveats...
 * Only supports returning numbers
 * Also only as safe as the functions in the environment
 * `inf` and `nan` can be inserted and returned
@@ -101,8 +102,6 @@ print(Expression.solve(parsedTokens))
 Paste `expression.lua` into your project, or add it with a git submodule:
 
 `git submodule add https://github.com/duckthing/expression.git ./lib/expression`
-
-Then require it.
 
 ## License
 This project is licensed under the terms of the zlib license.
