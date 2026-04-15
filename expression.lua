@@ -411,6 +411,7 @@ local function solve(expr, env, ...)
 				else
 					-- If the operator name is 2+ characters, it takes 1 parameter
 					local a = popFromStack(finalStack)
+					if not a then return false, "Invalid expression" end
 					pushToStack(finalStack, operatorFunc[nextItem](a))
 				end
 			else
