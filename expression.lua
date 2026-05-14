@@ -262,7 +262,7 @@ end
 ---If unsuccessful, returns `false` and the error string.
 ---
 ---`expr` may be a string or an array of tokens from the `parse` function.
----By default, `env` is equal to the `math` global table. It can be replace with other tables, or
+---By default, `env` is equal to the `math` global table. It can be replaced with other tables, or
 ---set to nothing by passing `false` instead.
 ---@param expr string | (string | number)[] # Either the expression or parsed tokens
 ---@param env table | false | nil # Symbols to use
@@ -458,9 +458,79 @@ local function solve(expr, env, ...)
 	end
 end
 
+local SANDBOX_EXPR_DEFAULT_ENV = setmetatable({},
+	{
+		__index = math,
+		__newindex = function(_, k) error(("Attempt to set variable '%s' in expression"):format(k)) end
+	}
+)
+local SANDBOX_EXPR_NO_ENV = setmetatable({},
+	{
+		__newindex = function(_, k) error(("Attempt to set variable '%s' in expression"):format(k)) end
+	}
+)
+
+local SANDBOX_SCRIPT_DEFAULT_ENV = setmetatable({}, {__index = math})
+local SANDBOX_SCRIPT_NO_ENV = {}
+
+---Parses an expression as a sandboxed Lua statement. You can call it later like a function.
+---The returned function takes in only one table as the environment, which is a wrapper around `math` by default.
+---Faster than the normal solver, but can be dangerous if your passed environment isn't hardened (`__newindex`).
+---@param expr string
+---@return (fun(env: table | false): boolean, ...)? # The returned function
+---@return string? errMessage # The error from loadstring
+local function sandboxExpression(expr)
+	local parsed, err = loadstring("return "..expr)
+	local result
+	if parsed then
+		result = function(env)
+			if env == nil then
+				env = SANDBOX_EXPR_DEFAULT_ENV
+			elseif env == false then
+				-- No environment when env is false
+				env = SANDBOX_EXPR_NO_ENV
+			end
+			setfenv(parsed, env)
+			return pcall(parsed)
+		end
+	end
+	return result, err
+end
+
+---Creates a sandboxed function with user input. You can call it later like a function.
+---The returned function takes in only one table as the environment, which is a wrapper around `math` by default.
+---Faster than the normal solver, but can be dangerous if your passed environment isn't hardened (`__newindex`).
+---**WARNING:** *Scripts may change variables in the passed environment, and it is your responsibility to clear it.*
+---@param body string
+---@return (fun(env: table | false): boolean, ...)? # The returned function
+---@return string? errMessage # The error from loadstring
+local function sandboxScript(body)
+	local parsed, err = loadstring(body)
+	local result
+	if parsed then
+		result = function(env)
+			if env == nil then
+				env = SANDBOX_SCRIPT_DEFAULT_ENV
+				-- Clear any variables used in the default environment
+				tclear(env)
+			elseif env == false then
+				-- No environment when env is false
+				env = SANDBOX_SCRIPT_NO_ENV
+				tclear(env)
+			end
+
+			setfenv(parsed, env)
+			return pcall(parsed)
+		end
+	end
+	return result, err
+end
+
 local Expression = {
 	parse = parse,
 	solve = solve,
+	sandboxExpression = sandboxExpression,
+	sandboxScript = sandboxScript,
 }
 
 return Expression
