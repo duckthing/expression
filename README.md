@@ -74,6 +74,8 @@ local mySymbols = {
 		return sum
 	end,
 }
+-- This makes any values in 'math' available
+setmetatable(mySymbols, {__index = math})
 
 print(Expression.solve("sum(1, 2, 3)"))
 --> false, "Invalid symbol 'sum'"
@@ -96,6 +98,44 @@ print(Expression.solve(parsedTokens, {x = 20, y = 40}))
 ---> true, 40, 80
 print(Expression.solve(parsedTokens))
 ---> false, "Invalid symbol 'x'"
+
+-- Expression allows sandboxing statements and scripts, which run
+-- faster than the built-in parser/solver but are dangerous with
+-- improper handling of the environment in user input.
+
+-- This function returns a function if successful, and an error message if not
+local statement, errorMessage = Expression.sandboxExpression("atan2(7, 6)")
+print(statement)
+---> <function>
+
+-- Called without an argument, it will use an environment where
+-- all values in the math global are available locally.
+print(statement())
+---> 0.8622
+
+-- The following is an example of a safe environment for an
+-- expression inputted by the user.
+-- * The first argument of 'setmetatable' includes an empty table
+-- * __newindex prevents setting any values, in case the user escapes
+
+-- * [optional] Changed 'atan2' to flip its parameters
+-- * [optional] __index points to any desired constants.
+mySymbols.atan2 = function(y, x) return math.atan2(x, y) end
+local myEnvironment = setmetatable({},
+	{
+		__index = mySymbols
+		__newindex = function() error("Cannot set values in an expression") end
+	})
+
+print(statement(myEnvironment))
+---> 1.4056
+
+-- Sandboxed scripts work like sandboxed expressions, except:
+-- * They are allowed to change values in the environment easily
+--   * Make sure to clear the environment table between runs,
+--     or use __newindex to block it.
+--   * (Also possible with expressions, just more difficult. It's
+--     blocked by the default expression environment)
 ```
 
 ## Usage
